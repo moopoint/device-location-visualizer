@@ -141,7 +141,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     oled_image(home);
   } else if(message.compareTo("work") == 0) {
     oled_image(work);
-  } else if(message.compareTo("away") == 0) {
+  } else if(message.compareTo("not_home") == 0) {
     oled_image(away);
   } else {
     idle();
