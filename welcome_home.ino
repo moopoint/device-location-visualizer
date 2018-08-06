@@ -1,6 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-
+#include "config.h"
 #include <Wire.h>  // Include Wire if you're using I2C
 #include <SPI.h>  // Include SPI if you're using SPI
 #include <SFE_MicroOLED.h>  // Include the SFE_MicroOLED library
@@ -10,14 +10,6 @@ MicroOLED oled(PIN_RESET, DC_JUMPER); // Example I2C declaration
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-
-const char* ssid = "...";
-const char* password = "...";
-
-const char* mqtt_host = "192.168.0.XX";
-const int mqtt_port = 1883;
-const char* mqtt_user = "...";
-const char* mqtt_pwd = "...";
 
 uint8_t work [] = {
   0x00, 0x00, 0x00, 0x00, 0xF8, 0xFC, 0xFE, 0xFE, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E,
@@ -107,7 +99,7 @@ bool inverted_display = false;
 void oled_setup() {
   oled.begin();
   oled.setFontType(0);
-  oled_clear();  
+  oled_clear();
 }
 
 void oled_clear() {
@@ -134,7 +126,7 @@ void oled_image(uint8_t * image) {
   oled.display();
 }
 
-void mqtt_callback(char* topic, byte* payload, unsigned int length) { 
+void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   String message = String((char *) payload).substring(0,length);
 
   if(message.compareTo("home") == 0) {
@@ -146,8 +138,26 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   } else {
     idle();
   }
-  
+
   oled_enable_inversion(2);
+}
+
+void mqtt_connect() {
+  oled_print("MQTT...");
+  while (!client.connected()) {
+    client.setServer(mqtt_host, mqtt_port);
+    client.setCallback(mqtt_callback);
+    if(client.connect(client_id, mqtt_user, mqtt_pwd)) {
+      client.subscribe(location_topic);
+    } else {
+      oled_print("FAIL!");
+      oled_print("Rebooting...");
+      delay(5000);
+      ESP.restart();
+    }
+  }
+  oled_println("OK");
+  delay(1000);
 }
 
 void setup() {
@@ -155,8 +165,9 @@ void setup() {
   Serial.begin(9600);
   oled_print("Booting...");
 
+  WiFi.hostname(client_id);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(wifi_name, wifi_password);
 
   oled_clear();
   oled_print("WIFI...");
@@ -169,30 +180,15 @@ void setup() {
   oled_println("OK");
   oled_println(WiFi.localIP().toString());
 
-  delay(2000);
-
-  oled_print("MQTT...");
-  while (!client.connected()) {
-    client.setServer(mqtt_host, 1883);
-    client.setCallback(mqtt_callback);
-    if(client.connect("test_device_location_display", mqtt_user, mqtt_pwd)) {
-      client.subscribe("test_device/location");
-    } else {
-      oled_print("FAIL!");
-      oled_print("Rebooting...");
-      delay(5000);
-      ESP.restart();      
-    }
-  }
-  oled_println("OK");
-  delay(1000);
+  delay(500);
+  mqtt_connect();
   idle();
 }
 
 void idle() {
   oled_clear();
   oled.setCursor(24,24);
-  oled_print("..."); 
+  oled_print("...");
 }
 
 void oled_enable_inversion(int duration) {
@@ -211,7 +207,7 @@ void oled_disable_inversion() {
 void oled_loop() {
   if (inversion_enabled) {
     oled.invert(inverted_display);
-    
+
     inverted_display = !inverted_display;
 
     // increment after full cycle (false -> true)
@@ -223,10 +219,15 @@ void oled_loop() {
       oled_disable_inversion();
     }
     delay(inversion_animation_frame_duration);
-  }  
+  }
 }
 
 void loop() {
+  if(!client.connected()) {
+    mqtt_connect();
+    idle();
+  }
+
   client.loop();
   oled_loop();
 }
