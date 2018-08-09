@@ -13,4 +13,4 @@ Away
 <img src="https://raw.githubusercontent.com/moopoint/device_location_visualizer/master/images/away.png" width="48">
 
 Work
-<img src="https://raw.githubusercontent.com/moopoint/device_location_visualizer/master/images/work.bmp" width="48">
+<img src="https://raw.githubusercontent.com/moopoint/device_location_visualizer/master/images/work.png" width="48">
